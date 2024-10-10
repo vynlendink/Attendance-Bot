@@ -19,6 +19,7 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
+# Use dynamic path for credentials
 script_directory = os.path.dirname(os.path.abspath(__file__))
 creds_path = os.path.join(script_directory, 'creds.json')
 creds = Credentials.from_service_account_file(creds_path, scopes=scope)
@@ -232,7 +233,6 @@ async def handle_date_range(ctx, sheet, start_date, reason):
         if name_sheet.cell(user, 1).value == username:
             username = name_sheet.cell(user, 2).value
             break
-    
 
     dates = start_date.split('-')
     try:
@@ -488,5 +488,8 @@ async def on_message(message):
     else:
         return
 
+
+
+# Retrieve token from the .env file
 load_dotenv()
 bot.run(os.getenv('TOKEN'))
