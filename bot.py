@@ -4,7 +4,6 @@ import gspread
 import json
 import re
 from google.oauth2.service_account import Credentials
-
 from discord.ext import commands
 from dotenv import load_dotenv
 from datetime import datetime
@@ -19,21 +18,17 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# Use dynamic path for credentials
 script_directory = os.path.dirname(os.path.abspath(__file__))
 creds_path = os.path.join(script_directory, 'creds.json')
 creds = Credentials.from_service_account_file(creds_path, scopes=scope)
 
 sheets = gspread.authorize(creds)
-
 spreadsheet_id = "1330-2-P2etVNhNd0WPYdvMAv_YoKVko0ya0vJ2rIv8o"
 spreadsheet = sheets.open_by_key(spreadsheet_id)
-
 classic_sheet = spreadsheet.worksheet("Classic")
 retail_sheet = spreadsheet.worksheet("Live")
 name_sheet = spreadsheet.worksheet("Names")
 professions_sheet = spreadsheet.worksheet("Professions")
-
 json_file_path = os.path.join(script_directory, 'channels.json')
 
 @bot.command(aliases=['profession', 'proff', 'p'])
@@ -46,14 +41,6 @@ async def add_profession(ctx, *, profession):
 @bot.command(name='craft')
 async def request_craft(ctx, *, item):
     item = item.lower()
-
-    if ctx.author.id == 163780323296018432:
-        await ctx.author.send("kig do NOT cum in the professions channel")
-
-    if "cum" in item:
-        await ctx.send("kig you have got to be normal")
-        return
-    
     item_words = item.split()
 
     if len(item_words) == 1 and item.endswith('s'):
@@ -233,7 +220,7 @@ async def handle_date_range(ctx, sheet, start_date, reason):
         if name_sheet.cell(user, 1).value == username:
             username = name_sheet.cell(user, 2).value
             break
-
+    
     dates = start_date.split('-')
     try:
         start_event_date = datetime.strptime(dates[0].strip(), "%m/%d/%y")
@@ -258,7 +245,7 @@ async def handle_date_range(ctx, sheet, start_date, reason):
 
     data = [username, formatted_start_date, formatted_end_date, reason, unique_id]
     sheet.append_row(data)
-    row_index = nextAvailable
+    row_index = nextAvailable 
 
     sheet.update_cell(row_index, 2, formatted_start_date)
     sheet.update_cell(row_index, 3, formatted_end_date)
@@ -489,7 +476,5 @@ async def on_message(message):
         return
 
 
-
-# Retrieve token from the .env file
 load_dotenv()
 bot.run(os.getenv('TOKEN'))
