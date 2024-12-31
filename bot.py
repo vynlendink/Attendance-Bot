@@ -6,7 +6,7 @@ import re
 from google.oauth2.service_account import Credentials
 from discord.ext import commands
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 
 intents = discord.Intents.all()
@@ -30,6 +30,60 @@ retail_sheet = spreadsheet.worksheet("Live")
 name_sheet = spreadsheet.worksheet("Names")
 professions_sheet = spreadsheet.worksheet("Professions")
 json_file_path = os.path.join(script_directory, 'channels.json')
+
+
+@bot.command(name='class')
+async def assign_class(ctx, *, class_name):
+    class_roles = {
+        'warrior': '1314193780148015125',
+        'paladin': '1314193525021347840',
+        'death knight': '1314192853626523648',
+        'dk': '1314192853626523648',
+        'evoker': '1314193034912727151',
+        'hunter': '1314193252039004240',
+        'shaman': '1314193678629081152',
+        'demon hunter': '1314192928184205344',
+        'dh': '1314192928184205344',
+        'rogue': '1314193601353351239',
+        'monk': '1314193472328306708',
+        'druid': '1314192985264754698',
+        'mage': '1314193294724562994',
+        'warlock': '1314193720484302848',
+        'priest': '1314193556050804736',
+    }
+
+    class_name = class_name.lower()
+
+    # Assign all roles
+    if class_name == "all":
+        roles = [ctx.guild.get_role(int(role_id)) for role_id in class_roles.values()]
+        roles_to_add = [role for role in roles if role not in ctx.author.roles]
+
+        if roles_to_add:
+            await ctx.author.add_roles(*roles_to_add)
+            await ctx.author.send(f"All class roles have been assigned to you.")
+        else:
+            await ctx.author.send("You already have all class roles.")
+
+        await ctx.message.delete()
+        return
+
+    # Assign/remove individual roles
+    role_id = class_roles.get(class_name)
+    if not role_id:
+        await ctx.send("You must provide a valid class.")
+        return
+
+    role = ctx.guild.get_role(int(role_id))
+
+    if role in ctx.author.roles:
+        await ctx.author.remove_roles(role)
+        await ctx.author.send(f"Removed the role `{role.name}`.")
+        await ctx.message.delete()
+    else:
+        await ctx.author.add_roles(role)
+        await ctx.author.send(f"You have been assigned the `{role.name}` role.")
+        await ctx.message.delete()
 
 @bot.command(aliases=['profession', 'proff', 'p'])
 async def add_profession(ctx, *, profession):
@@ -111,6 +165,21 @@ async def remove_profession(ctx, *, profession=None):
     professions = [(row[0], row[1].lower()) for row in profession_data if row[0]]
 
     rows_to_delete = []
+
+    if profession == "all":
+        for i, (user, _) in enumerate(professions, start=1):
+            if user == discord_tag:
+                rows_to_delete.append(i)
+
+        if rows_to_delete:
+            for row in sorted(rows_to_delete, reverse=True):
+                professions_sheet.delete_rows(row)
+            
+            await ctx.send(f"Removed all professions for {ctx.author.display_name}")
+        else:
+            await ctx.send(f"No professions found for user {ctx.author.display_name}")
+        return
+    
     for i, (user, registered_profession) in enumerate(professions, start=1):
         if user == discord_tag and registered_profession == profession:
             rows_to_delete.append(i)
@@ -260,6 +329,40 @@ async def handle_date_range(ctx, sheet, start_date, reason):
         rowsToDelete.reverse()
         for row_index in rowsToDelete:
             sheet.delete_rows(row_index)
+
+@bot.command(name="cleanup_absences")
+@commands.has_permissions(administrator=True)
+async def cleanup_absences(ctx):
+    current_date = datetime.now()
+    removal_date = current_date - timedelta(days=2)
+
+    all_values = retail_sheet.get_all_values()
+    rows_to_delete = []
+
+    for row, values in enumerate(all_values, start=1):
+        try:
+            end_date = datetime.strptime(values[2], "%m/%d/%y")
+            if end_date < removal_date:
+                rows_to_delete.append(row)
+        except (ValueError, IndexError):
+            continue
+
+    if rows_to_delete:
+        rows_to_delete.reverse()
+        for row_index in rows_to_delete:
+            retail_sheet.delete_rows(row_index)
+        await ctx.author.send(f"Cleaned up {len(rows_to_delete)} past absences.")
+    else:
+        await ctx.author.send("No past absences to clean up.")
+
+    await ctx.message.delete()
+
+@cleanup_absences.error
+async def cleanup_absences_error(ctx, error):
+    if isinstance(error, commands.MissingPermissions):
+        await ctx.author.send("You do not have permission to use this command.")
+        await ctx.message.delete()
+
     
 @bot.command(aliases=['nick','nickname','nn'])
 async def name(ctx, username):
@@ -385,6 +488,10 @@ async def h(ctx):
                        Examples: .craft cloth bracer
                    
                    **.removeproff, .removep** - Removes all of your professions, mostly so when the tier is over we can make Tainted do his job.
+
+                   **.registered** - Sends a list of everything that can be crafted and by who. It'll be a long list.
+
+                   **.class <class>** - Add/Remove roles for a specific class.
 
                    **.classic, .cata, .c** - Post out on Classic with the following arguments:
                       Date: MM/DD/YY format. Date ranges supported by using MM/DD/YY-MM/DD/YY
